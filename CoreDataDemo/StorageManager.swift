@@ -24,8 +24,6 @@ class StorageManager {
     }()
     
     lazy var context = persistentContainer.viewContext
-
-    var taskList: [Task] = []
     
     private init() {}
 }
