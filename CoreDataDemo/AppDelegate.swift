@@ -2,7 +2,7 @@
 //  AppDelegate.swift
 //  CoreDataDemo
 //
-//  Created by brubru on 24.01.2022.
+//  Created by Snow Lukin on 26.01.2022.
 //
 
 import UIKit
