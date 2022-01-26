@@ -73,11 +73,10 @@ class TaskListViewController: UITableViewController {
     
     private func showAlert(with title: String, and message: String) {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        let saveAction = UIAlertAction(title: "Save", style: .default) { _ in
+        let saveAction = UIAlertAction(title: "Create", style: .default) { _ in
             guard let task = alert.textFields?.first?.text, !task.isEmpty else { return }
-            self.save(task)
+            self.saveTask(task)
         }
-        
         let cancelAction = UIAlertAction(title: "Cancel", style: .destructive)
         
         alert.addAction(saveAction)
@@ -87,7 +86,8 @@ class TaskListViewController: UITableViewController {
         }
         present(alert, animated: true)
     }
-    private func save(_ taskName: String) {
+    
+    private func saveTask(_ taskName: String) {
         
         let task = Task(context: context)
         task.name = taskName
@@ -95,12 +95,32 @@ class TaskListViewController: UITableViewController {
         
         let cellIndex = IndexPath(row: taskList.count - 1, section: 0)
         tableView.insertRows(at: [cellIndex], with: .automatic)
-        
         do {
             try context.save()
-        } catch let error {
+        } catch {
             print(error)
         }
+        
+        fetchData()
+    }
+    
+    private func deleteTask(task: Task) {
+        context.delete(task)
+        do {
+            try context.save()
+        } catch {
+            print(error)
+        }
+    }
+    
+    private func editTask(task: Task, _ newName: String) {
+        task.name = newName
+        do {
+            try context.save()
+        } catch {
+            print(error)
+        }
+        fetchData()
     }
 }
 
@@ -117,5 +137,44 @@ extension TaskListViewController {
         content.text = task.name
         cell.contentConfiguration = content
         return cell
+    }
+    
+    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let edit = self.editSwipeAction(rowIndexPathAt: indexPath)
+        let delete = self.deleteSwipeAction(rowIndexPathAt: indexPath)
+        let swipe = UISwipeActionsConfiguration(actions: [delete, edit])
+        
+        return swipe
+    }
+    
+    private func deleteSwipeAction(rowIndexPathAt indexPath: IndexPath) -> UIContextualAction {
+        let action = UIContextualAction(style: .destructive, title: "Delete") { [self] _, _, _ in
+            self.deleteTask(task: self.taskList[indexPath.row])
+            self.fetchData()
+            self.tableView.deleteRows(at: [indexPath], with: .fade)
+        }
+        
+        return action
+    }
+    
+    private func editSwipeAction(rowIndexPathAt indexPath: IndexPath) -> UIContextualAction {
+        let action = UIContextualAction(style: .normal, title: "Edit") { _, _, _ in
+            let alert = UIAlertController(title: "Edit task", message: "", preferredStyle: .alert)
+            let saveAction = UIAlertAction(title: "Save", style: .default) { _ in
+                guard let task = alert.textFields?.first?.text, !task.isEmpty else { return }
+                self.editTask(task: self.taskList[indexPath.row], task)
+                self.tableView.reloadData()
+            }
+            let cancelAction = UIAlertAction(title: "Cancel", style: .destructive)
+            
+            alert.addAction(saveAction)
+            alert.addAction(cancelAction)
+            alert.addTextField { textField in
+                textField.placeholder = self.taskList[indexPath.row].name
+            }
+            self.present(alert, animated: true)
+        }
+        
+        return action
     }
 }
