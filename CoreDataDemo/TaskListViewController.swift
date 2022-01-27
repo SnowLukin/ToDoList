@@ -10,8 +10,6 @@ import CoreData
 
 class TaskListViewController: UITableViewController {
     
-    private let context = StorageManager.shared.context
-    
     private let cellID = "task"
     private var taskList: [Task] = []
 
@@ -28,8 +26,7 @@ class TaskListViewController: UITableViewController {
         fetchData()
         tableView.reloadData()
     }
- 
-    // MARK: Private Methods
+    
     private func setupNavigationBar() {
         title = "Task List"
         navigationController?.navigationBar.prefersLargeTitles = true
@@ -54,23 +51,11 @@ class TaskListViewController: UITableViewController {
             target: self,
             action: #selector(addNewTask)
         )
-        
         navigationController?.navigationBar.tintColor = .white
-        
     }
     
     @objc private func addNewTask() {
         showAlert(with: "New Task", and: "What do you want to do?")
-    }
-    
-    private func fetchData() {
-        let fetchRequest = Task.fetchRequest()
-        
-        do {
-            taskList = try context.fetch(fetchRequest)
-        } catch {
-           print("Faild to fetch data", error)
-        }
     }
     
     private func showAlert(with title: String, and message: String) {
@@ -93,30 +78,21 @@ class TaskListViewController: UITableViewController {
     }
 }
 
-// MARK: - Table View
+// MARK: - Storage fetch
 extension TaskListViewController {
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        taskList.count
+    private func fetchData() {
+        let fetchRequest = Task.fetchRequest()
+        let context = StorageManager.shared.context
+        do {
+            taskList = try context.fetch(fetchRequest)
+        } catch {
+           print("Faild to fetch data", error)
+        }
     }
-    
-    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: cellID, for: indexPath)
-        let task = taskList[indexPath.row]
-        
-        var content = cell.defaultContentConfiguration()
-        content.text = task.name
-        cell.contentConfiguration = content
-        return cell
-    }
-    
-    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let edit = self.editSwipeAction(rowIndexPathAt: indexPath)
-        let delete = self.deleteSwipeAction(rowIndexPathAt: indexPath)
-        let swipe = UISwipeActionsConfiguration(actions: [delete, edit])
-        
-        return swipe
-    }
-    
+}
+
+// MARK: - Swipe Actions
+extension TaskListViewController {
     private func deleteSwipeAction(rowIndexPathAt indexPath: IndexPath) -> UIContextualAction {
         let action = UIContextualAction(style: .destructive, title: "Delete") { [self] _, _, _ in
             StorageManager.shared.deleteTask(task: self.taskList[indexPath.row])
@@ -146,5 +122,35 @@ extension TaskListViewController {
         }
         
         return action
+    }
+}
+
+// MARK: - Table View
+extension TaskListViewController {
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        taskList.count
+    }
+    
+    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: cellID, for: indexPath)
+        let task = taskList[indexPath.row]
+        cell.backgroundColor = .clear
+        var content = cell.defaultContentConfiguration()
+        content.text = task.name
+        content.textProperties.color = .black
+        cell.contentConfiguration = content
+        return cell
+    }
+    
+    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        let edit = self.editSwipeAction(rowIndexPathAt: indexPath)
+        let delete = self.deleteSwipeAction(rowIndexPathAt: indexPath)
+        let swipe = UISwipeActionsConfiguration(actions: [delete, edit])
+        
+        return swipe
+    }
+    
+    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
     }
 }
