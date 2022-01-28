@@ -10,8 +10,8 @@ import CoreData
 
 class TaskListViewController: UITableViewController {
     
-    private let cellID = "task"
     private var taskList: [Task] = []
+    private let cellID = "task"
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -19,12 +19,6 @@ class TaskListViewController: UITableViewController {
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: cellID)
         setupNavigationBar()
         fetchData()
-    }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        fetchData()
-        tableView.reloadData()
     }
     
     private func setupNavigationBar() {
@@ -55,39 +49,51 @@ class TaskListViewController: UITableViewController {
     }
     
     @objc private func addNewTask() {
-        showAlert(with: "New Task", and: "What do you want to do?")
-    }
-    
-    private func showAlert(with title: String, and message: String) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        let saveAction = UIAlertAction(title: "Create", style: .default) { _ in
-            guard let task = alert.textFields?.first?.text, !task.isEmpty else { return }
-            StorageManager.shared.createTask(task)
-            self.fetchData()
-            let cellIndex = IndexPath(row: self.taskList.count - 1, section: 0)
-            self.tableView.insertRows(at: [cellIndex], with: .automatic)
-        }
-        let cancelAction = UIAlertAction(title: "Cancel", style: .destructive)
-        
-        alert.addAction(saveAction)
-        alert.addAction(cancelAction)
-        alert.addTextField { textField in
-            textField.placeholder = "New Task"
-        }
-        present(alert, animated: true)
+        showAlert()
     }
 }
 
-// MARK: - Storage fetch
+// MARK: - Data
 extension TaskListViewController {
     private func fetchData() {
-        let fetchRequest = Task.fetchRequest()
-        let context = StorageManager.shared.context
-        do {
-            taskList = try context.fetch(fetchRequest)
-        } catch {
-           print("Faild to fetch data", error)
+        StorageManager.shared.fetchData { result in
+            switch result {
+            case .success(let tasks):
+                self.taskList = tasks
+            case .failure(let error):
+                print(error.localizedDescription)
+            }
         }
+    }
+    
+    private func create(taskName: String) {
+        StorageManager.shared.createTask(taskName) { task in
+            self.taskList.append(task)
+            self.tableView.insertRows(
+                at: [IndexPath(row: self.taskList.count - 1, section: 0)],
+                with: .automatic
+            )
+        }
+    }
+}
+
+// MARK: - AlertController
+extension TaskListViewController {
+    private func showAlert(task: Task? = nil, completion: (() -> Void)? = nil) {
+        
+        let title = task != nil ? "Edit Task" : "New Task"
+        let alert = UIAlertController.createAlertController(withTitle: title)
+        
+        alert.action(task: task) { taskName in
+            if let task = task, let completion = completion {
+                StorageManager.shared.editTask(task: task, taskName)
+                completion()
+            } else {
+                self.create(taskName: taskName)
+            }
+        }
+        
+        present(alert, animated: true)
     }
 }
 
@@ -96,7 +102,7 @@ extension TaskListViewController {
     private func deleteSwipeAction(rowIndexPathAt indexPath: IndexPath) -> UIContextualAction {
         let action = UIContextualAction(style: .destructive, title: "Delete") { [self] _, _, _ in
             StorageManager.shared.deleteTask(task: self.taskList[indexPath.row])
-            self.fetchData()
+            taskList.remove(at: indexPath.row)
             self.tableView.deleteRows(at: [indexPath], with: .fade)
         }
         
@@ -105,20 +111,9 @@ extension TaskListViewController {
     
     private func editSwipeAction(rowIndexPathAt indexPath: IndexPath) -> UIContextualAction {
         let action = UIContextualAction(style: .normal, title: "Edit") { _, _, _ in
-            let alert = UIAlertController(title: "Edit task", message: "", preferredStyle: .alert)
-            let saveAction = UIAlertAction(title: "Save", style: .default) { _ in
-                guard let task = alert.textFields?.first?.text, !task.isEmpty else { return }
-                StorageManager.shared.editTask(task: self.taskList[indexPath.row], task)
-                self.tableView.reloadData()
+            self.showAlert(task: self.taskList[indexPath.row]) {
+                self.tableView.reloadRows(at: [indexPath], with: .automatic)
             }
-            let cancelAction = UIAlertAction(title: "Cancel", style: .destructive)
-            
-            alert.addAction(saveAction)
-            alert.addAction(cancelAction)
-            alert.addTextField { textField in
-                textField.placeholder = self.taskList[indexPath.row].name
-            }
-            self.present(alert, animated: true)
         }
         
         return action

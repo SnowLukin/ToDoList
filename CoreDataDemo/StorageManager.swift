@@ -12,7 +12,7 @@ class StorageManager {
     
     static let shared = StorageManager()
     
-    lazy var persistentContainer: NSPersistentContainer = {
+    private var persistentContainer: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "CoreDataDemo")
         container.loadPersistentStores(completionHandler: { (storeDescription, error) in
             if let error = error as NSError? {
@@ -23,15 +23,28 @@ class StorageManager {
         return container
     }()
     
-    lazy var context = persistentContainer.viewContext
+    private var context: NSManagedObjectContext
     
-    private init() {}
+    private init() {
+        context = persistentContainer.viewContext
+    }
 }
 
+// MARK: Public Methods
 extension StorageManager {
     
+    func fetchData(completion: (Result<[Task], Error>) -> Void)  {
+        let fetchRequest = Task.fetchRequest()
+        
+        do {
+            let tasks = try context.fetch(fetchRequest)
+            completion(.success(tasks))
+        } catch {
+            completion(.failure(error))
+        }
+    }
+    
     func saveContext() {
-        let context = persistentContainer.viewContext
         if context.hasChanges {
             do {
                 try context.save()
@@ -42,9 +55,10 @@ extension StorageManager {
         }
     }
     
-    func createTask(_ taskName: String) {
+    func createTask(_ taskName: String, completion: (Task) -> Void) {
         let task = Task(context: context)
         task.name = taskName
+        completion(task)
         saveContext()
     }
     
